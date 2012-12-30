@@ -1,0 +1,27 @@
+cmyth roku
+----------
+
+This repository contains both the client application that runs on your
+Roku device, as well as the server the client talks to.  The server acts
+as a bridge between the Roku client and your MythTV backend.
+
+In order to install the client on your device, you will do the following:
+
+	$ make
+	$ ROKU_DEV_TARGET=<target> make install
+
+Where <target> is the hostname or IP address of your Roku device.
+
+In order to run the daemon, you have to provide the hostname or IP address
+of your MythTV backend:
+
+	$ cmrd.py --server <backend>
+
+The cmrd.py daemon is implemented in Python, and requires the cmyth Python
+module to be installed.  You can get the cmyth code which contains the Python
+language bindings here:
+
+	 https://github.com/gettler/cmyth
+
+To debug the Brightscript client code, you can telnet to the Roku device at
+port 8085.  This will allow you to see all the print messages.

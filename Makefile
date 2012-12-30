@@ -19,7 +19,7 @@
 APPNAME = cmyth
 VERSION = 0.1
 
-ZIP_EXCLUDE= -x pkg\* -x .git\* -x ._\* -x \*/._\* -x NOTES -x \*.xcf -x \*.py
+ZIP_EXCLUDE= -x pkg\* -x .git\* -x ._\* -x \*/._\* -x NOTES -x README -x \*.xcf -x \*.py
 
 PKGREL = pkg
 ZIPREL = pkg

@@ -26,6 +26,7 @@ import SocketServer
 import SimpleHTTPServer
 import base64
 import re
+import time
 import cmyth
 
 from xml.dom.minidom import Document
@@ -34,11 +35,37 @@ conn = None
 server = None
 port = None
 
+def connect():
+    global conn
+    global server
+
+    if conn:
+        print 'Reconnect to server %s' % server
+    else:
+        print 'Connect to server %s' % server
+
+    while True:
+        try:
+            conn = cmyth.connection(server)
+            print 'connection established'
+            return
+        except:
+            print 'connection failed!'
+            time.sleep(1)
+
 class httpd(SimpleHTTPServer.SimpleHTTPRequestHandler):
+    def verify_connection(self):
+        e = conn.get_event(0)
+        while e:
+            if e.name() == 'connection closed':
+                connect()
+            e = conn.get_event(0)
+
     def do_GET(self):
         self.protocol_version = 'HTTP/1.1'
         list = self.path.split('/')
         if list[1] == 'cmyth_roku':
+            self.verify_connection()
             if list[2] == 'list.xml':
                 self.get_list()
             elif list[2] == 'title':
@@ -196,8 +223,8 @@ class httpd(SimpleHTTPServer.SimpleHTTPRequestHandler):
         title = base64.urlsafe_b64encode(prog.title())
         path = base64.urlsafe_b64encode(prog.pathname())
         
-        f = '/title/%s.xml' % title
-        image = '/episode/%s/%s.png' % (title,path)
+        f = '/cmyth_roku/title/%s.xml' % title
+        image = '/cmyth_roku/episode/%s/%s.png' % (title,path)
 
         recording = doc.createElement("recording")
 
@@ -212,8 +239,8 @@ class httpd(SimpleHTTPServer.SimpleHTTPRequestHandler):
         path = base64.urlsafe_b64encode(prog.pathname())
         e = prog.pathname().split('.')
         
-        recording = '/episode/%s/%s.%s' % (title,path,e[1])
-        image = '/episode/%s/%s.png' % (title,path)
+        recording = '/cmyth_roku/episode/%s/%s.%s' % (title,path,e[1])
+        image = '/cmyth_roku/episode/%s/%s.png' % (title,path)
 
         episode = doc.createElement("episode")
 
@@ -238,7 +265,6 @@ def usage(code):
     sys.exit(code)
 
 def main():
-    global conn
     global server
     global port
 
@@ -263,9 +289,11 @@ def main():
         print 'No server provided!'
         usage(1)
 
-    conn = cmyth.connection(server)
+    connect()
 
     s = SocketServer.ThreadingTCPServer(('', port), httpd)
+    print 'http server created'
+
     s.serve_forever()
 
 if __name__ == '__main__':

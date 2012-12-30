@@ -108,7 +108,7 @@ end function
 
 function getURLPrefix() As Dynamic
 
-    prefix = "http://" + getServerName() + ":" + getPortNum() + "/cmyth_roku"
+    prefix = "http://" + getServerName() + ":" + getPortNum()
 
     return prefix
 

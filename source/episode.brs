@@ -83,7 +83,9 @@ function showEpisodeScreen(title as String, file as String)
 		item = episodes[msg.GetIndex()]
                 print item@file
 		showVideoScreen(item)
+		print "playback stopped"
             else if msg.isScreenClosed() then
+		print "episode screen closed"
                 return -1
 	    end if
 	end if

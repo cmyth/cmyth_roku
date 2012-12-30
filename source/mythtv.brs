@@ -103,7 +103,7 @@ function getRecordings() as Object
     conn = CreateObject("roAssociativeArray")
 
     conn.UrlPrefix = getURLPrefix()
-    conn.UrlCategoryFeed = conn.UrlPrefix + "/list.xml"
+    conn.UrlCategoryFeed = conn.UrlPrefix + "/cmyth_roku/list.xml"
 
     print "URL: " + conn.UrlCategoryFeed
 
