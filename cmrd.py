@@ -2,7 +2,7 @@
 #
 # cmrd - The cmyth Roku daemon
 #
-#  Copyright (C) 2012, Jon Gettler
+#  Copyright (C) 2012-2013, Jon Gettler
 #  http://www.mvpmc.org/
 #
 # This program is free software; you can redistribute it and/or modify
@@ -34,10 +34,12 @@ from xml.dom.minidom import Document
 conn = None
 server = None
 port = None
+progs = None
 
 def connect():
     global conn
     global server
+    global progs
 
     if conn:
         print 'Reconnect to server %s' % server
@@ -48,6 +50,8 @@ def connect():
         try:
             conn = cmyth.connection(server)
             print 'connection established'
+            progs = conn.get_proglist()
+            print 'got program list with %d recordings' % progs.get_count()
             return
         except:
             print 'connection failed!'
@@ -55,23 +59,39 @@ def connect():
 
 class httpd(SimpleHTTPServer.SimpleHTTPRequestHandler):
     def verify_connection(self):
+        global progs
+        global conn
+
         e = conn.get_event(0)
         while e:
             if e.name() == 'connection closed':
                 connect()
+            elif e.name() == 'recording list change' or \
+                    e.name() == 'recording list change add' or \
+                    e.name() == 'recording list change update' or \
+                    e.name() == 'recording list change delete' or \
+                    e.name() == 'done recording':
+                progs = conn.get_proglist()
+                print 'got program list'
             e = conn.get_event(0)
 
     def do_GET(self):
+        global server
+
         self.protocol_version = 'HTTP/1.1'
-        list = self.path.split('/')
-        if list[1] == 'cmyth_roku':
+        parts = self.path.split('/')
+        if parts[1] == 'cmyth_roku':
             self.verify_connection()
-            if list[2] == 'list.xml':
+            if parts[2] == server:
+                parts = parts[0:2] + parts[3:]
+            if parts[2] == 'list.xml':
                 self.get_list()
-            elif list[2] == 'title':
-                self.get_title(list[3])
-            elif list[2] == 'episode':
-                self.get_episode(list[3], list[4])
+            elif parts[2] == 'backends.xml':
+                self.get_backends()
+            elif parts[2] == 'title':
+                self.get_title(parts[3])
+            elif parts[2] == 'episode':
+                self.get_episode(parts[3], parts[4])
             else:
                 self.not_found()
         else:
@@ -82,9 +102,11 @@ class httpd(SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.end_headers()
 
     def respond(self, pathname, image, start=-1, end=-1):
-        list = conn.get_proglist()
-        for i in range(list.get_count()):
-            prog = list.get_prog(i)
+        global progs
+        global conn
+
+        for i in range(progs.get_count()):
+            prog = progs.get_prog(i)
             if prog.pathname() == pathname:
                 break
             prog.release()
@@ -172,6 +194,9 @@ class httpd(SimpleHTTPServer.SimpleHTTPRequestHandler):
             self.respond(pathname, image)
 
     def get_title(self, file):
+        global progs
+        global conn
+
         self.send_response(200)
         self.end_headers()
 
@@ -181,9 +206,8 @@ class httpd(SimpleHTTPServer.SimpleHTTPRequestHandler):
 
         t = file.split('.')[0]
         title = base64.urlsafe_b64decode(t)
-        list = conn.get_proglist()
-        for i in range(list.get_count()):
-            prog = list.get_prog(i)
+        for i in range(progs.get_count()):
+            prog = progs.get_prog(i)
             if prog.title() == title:
                 episode = self.create_episode(prog, doc)
                 episodes.appendChild(episode)
@@ -191,6 +215,9 @@ class httpd(SimpleHTTPServer.SimpleHTTPRequestHandler):
         self.wfile.write(doc.toprettyxml(indent="  "))
 
     def get_list(self):
+        global progs
+        global conn
+
         self.send_response(200)
         self.end_headers()
 
@@ -198,33 +225,52 @@ class httpd(SimpleHTTPServer.SimpleHTTPRequestHandler):
         recordings = doc.createElement("recordings")
         doc.appendChild(recordings)
 
-        progs = []
+        pl = []
         titles = []
 
-        list = conn.get_proglist()
-        for i in range(list.get_count()):
-            prog = list.get_prog(i)
+        for i in range(progs.get_count()):
+            prog = progs.get_prog(i)
             if not prog.title() in titles:
-                progs += [ prog ]
+                pl += [ prog ]
                 titles += [ prog.title() ]
             else:
                 prog.release()
 
-        for i in progs:
+        for i in pl:
             recording = self.create_recording(i, doc)
             recordings.appendChild(recording)
             i.release()
 
-        list.release()
+        self.wfile.write(doc.toprettyxml(indent="  "))
+
+    def get_backends(self):
+        global server
+        global progs
+
+        self.send_response(200)
+        self.end_headers()
+
+        doc = Document()
+        backends = doc.createElement("backends")
+        doc.appendChild(backends)
+
+        description = "%d recordings" % progs.get_count()
+
+        backend = doc.createElement("backend")
+        backend.setAttribute("address", server)
+        backend.setAttribute("description", description)
+        backends.appendChild(backend)
 
         self.wfile.write(doc.toprettyxml(indent="  "))
 
     def create_recording(self, prog, doc):
+        global server
+
         title = base64.urlsafe_b64encode(prog.title())
         path = base64.urlsafe_b64encode(prog.pathname())
         
-        f = '/cmyth_roku/title/%s.xml' % title
-        image = '/cmyth_roku/episode/%s/%s.png' % (title,path)
+        f = '/cmyth_roku/%s/title/%s.xml' % (server,title)
+        image = '/cmyth_roku/%s/episode/%s/%s.png' % (server,title,path)
 
         recording = doc.createElement("recording")
 
@@ -235,12 +281,14 @@ class httpd(SimpleHTTPServer.SimpleHTTPRequestHandler):
         return recording
 
     def create_episode(self, prog, doc):
+        global server
+
         title = base64.urlsafe_b64encode(prog.title())
         path = base64.urlsafe_b64encode(prog.pathname())
         e = prog.pathname().split('.')
         
-        recording = '/cmyth_roku/episode/%s/%s.%s' % (title,path,e[1])
-        image = '/cmyth_roku/episode/%s/%s.png' % (title,path)
+        recording = '/cmyth_roku/%s/episode/%s/%s.%s' % (server,title,path,e[1])
+        image = '/cmyth_roku/%s/episode/%s/%s.png' % (server,title,path)
 
         episode = doc.createElement("episode")
 

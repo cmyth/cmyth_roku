@@ -1,7 +1,7 @@
 '*
-'* Titles Screen
+'* Backends screen
 '*
-'* Copyright (C) 2012-2013, Jon Gettler
+'* Copyright (C) 2013, Jon Gettler
 '* http://www.mvpmc.org/
 '*
 '* This program is free software; you can redistribute it and/or modify
@@ -22,26 +22,25 @@
 '*
 '*
 '*
-function createMythtvScreen(xml as Object) as Object
+function createBackendScreen(xml as Object) as Object
 
-    print "createMythtvScreen()"
+    print "createBackendScreen()"
 
-    if xml.recordings = invalid then
-        print "no recordings"
+    if xml.backends = invalid then
+        print "no backends"
     end if
-    if xml.recording = invalid then
-        print "no recording"
+    if xml.backend = invalid then
+        print "no backend"
     end if
 
-    recordings = xml.GetChildElements()
-    print "number of titles: " + Stri(recordings.Count())
+    backends = xml.GetChildElements()
+    print "number of backends: " + Stri(backends.Count())
 
     root = init_homescreen_item("", "MythTV")
 
-    for each rec in recordings
-        url = getURLPrefix() + rec@image
-    	rec = init_recording_item(rec@title, url)
-        root.AddKid(rec)
+    for each b in backends
+    	item = init_backend_item(b@address, b@description)
+        root.AddKid(item)
     next
 
     print "xml parsed"
@@ -53,9 +52,9 @@ end function
 '*
 '*
 '*
-function showMythtvScreen(backend)
+function showBackendScreen()
 
-    print "showMythtvScreen()"
+    print "showBackendScreen()"
 
     port = CreateObject("roMessagePort")
     screen = CreateObject("roPosterScreen")
@@ -64,17 +63,17 @@ function showMythtvScreen(backend)
     screen.setAdDisplayMode("scale-to-fit")
 
     xml=CreateObject("roXMLElement")
-    rec = getRecordings(backend)
-    if not xml.Parse(rec) then
+    backends = getBackends()
+    if not xml.Parse(backends) then
         print "Can't parse feed"
         return invalid
     end if
-    recordings = xml.GetChildElements()
+    backends = xml.GetChildElements()
 
-    m.titles = createMythtvScreen(xml)
+    m.backends = createBackendScreen(xml)
 
-    screen.SetBreadcrumbText(backend, "")
-    screen.SetContentList(m.titles.Kids)
+    screen.SetBreadcrumbText("Backends", "")
+    screen.SetContentList(m.backends.Kids)
     screen.SetFocusedListItem(0)
     screen.Show()
 
@@ -83,11 +82,11 @@ function showMythtvScreen(backend)
         if type(msg) = "roPosterScreenEvent" then
             if msg.isListItemSelected() then
                 print "item selected | index = "; msg.GetIndex()
-		item = recordings[msg.GetIndex()]
-                print item@title
-		showEpisodeScreen(item@title, item@file)
+		item = backends[msg.GetIndex()]
+                print "loading backend: " + item@address
+		showMythTVScreen(item@address)
             else if msg.isScreenClosed() then
-		print "closing mythtv screen for backend " + backend
+	    	print "closing backend screen"
                 return -1
 	    end if
 	end if
@@ -98,14 +97,14 @@ end function
 '*
 '*
 '*
-function getRecordings(backend) as Object
+function getBackends() as Object
 
-    print "getRecordings()"
+    print "getBackends()"
 
     conn = CreateObject("roAssociativeArray")
 
     conn.UrlPrefix = getURLPrefix()
-    conn.UrlCategoryFeed = conn.UrlPrefix + "/cmyth_roku/" + backend + "/list.xml"
+    conn.UrlCategoryFeed = conn.UrlPrefix + "/cmyth_roku/backends.xml"
 
     print "URL: " + conn.UrlCategoryFeed
 
@@ -119,20 +118,20 @@ function getRecordings(backend) as Object
 
 end function
 
-Function init_recording_item(title, image) As Object
+Function init_backend_item(title, description) As Object
     o = CreateObject("roAssociativeArray")
     o.Title       = title
     o.ShortDescriptionLine1       = title
-    'o.ShortDescriptionLine2       = start
+    o.ShortDescriptionLine2       = description
     o.Type        = "normal"
-    'o.Description = description
+    o.Description = description
     o.Kids        = CreateObject("roArray", 100, true)
     o.Parent      = invalid
     o.Feed        = ""
     o.IsLeaf      = cn_is_leaf
     o.AddKid      = cn_add_kid
-    o.SDPosterURL = image
-    o.HDPosterURL = image
+    o.SDPosterURL = "pkg:/images/mythtv.png"
+    o.HDPosterURL = "pkg:/images/mythtv.png"
     return o
 End Function
 

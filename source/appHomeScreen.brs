@@ -1,7 +1,7 @@
 '*
 '* Application Home Screen
 '*
-'* Copyright (C) 2012, Jon Gettler
+'* Copyright (C) 2012-2013, Jon Gettler
 '* http://www.mvpmc.org/
 '*
 '* This program is free software; you can redistribute it and/or modify
@@ -47,7 +47,7 @@ Function showHomeScreen(screen) As Integer
     screen.Show()
 
     if getServerName() <> invalid and getPortNum() <> invalid then
-    	showMythtvScreen()
+        showBackendScreen()
     else
         showSettingsScreen()
     end if
@@ -61,7 +61,7 @@ Function showHomeScreen(screen) As Integer
 		    showSettingsScreen()
 		else if msg.GetIndex() = 1 then
 		    print "mythtv..."
-		    showMythtvScreen()
+		    showBackendScreen()
 		else if msg.GetIndex() = 2 then
 		    showAboutScreen()
 		endif
